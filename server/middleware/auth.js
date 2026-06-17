@@ -41,7 +41,7 @@ export const protect = async (req, res, next) => {
   
   try {
     const authHeader = req.headers.authorization;
-    console.log("AUTH HEADER:", req.headers.authorization);
+    // console.log("AUTH HEADER:", req.headers.authorization);
 
     // Check header
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -52,7 +52,7 @@ export const protect = async (req, res, next) => {
 
     // Extract token
     const token = authHeader.split(" ")[1];
-    console.log("TOKEN:", token);
+    // console.log("TOKEN:", token);
 
 
     // Verify JWT

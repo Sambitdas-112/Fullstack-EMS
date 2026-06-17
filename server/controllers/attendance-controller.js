@@ -5,29 +5,35 @@ import { inngest } from "../inngest/index.js";
 export const clockInOut = async (req, res) => {
   try {
     const db = await connectDB();
-     const userId = req.user.userId;
+    const userId = req.user.userId;
 
-    // 🔍 Find employee
+    // Find employee
     const employee = await db.collection("employees").findOne({
-     userId: new ObjectId(req.user.userId),
+      userId: new ObjectId(userId),
     });
-    
-    if (!employee)
-      return res.status(404).json({ error: "Employee not found" });
 
-    if (employee.isDeleted)
-      return res.status(403).json({
-        error: "Your account is deactivated. You cannot in/out",
+    if (!employee) {
+      return res.status(404).json({
+        error: "Employee not found",
       });
+    }
 
-    // 📅 Start of today
+    if (employee.isDeleted) {
+      return res.status(403).json({
+        error: "Your account is deactivated. You cannot check in/out",
+      });
+    }
+
+    // Start of today (IST)
     const today = new Date(
-        new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+      new Date().toLocaleString("en-US", {
+        timeZone: "Asia/Kolkata",
+      })
     );
-    today.setHours(0, 0, 0, 0);
-    
 
-    // 🔍 Check existing attendance
+    today.setHours(0, 0, 0, 0);
+
+    // Existing attendance
     const existing = await db.collection("attendance").findOne({
       employeeId: employee._id,
       date: today,
@@ -35,7 +41,9 @@ export const clockInOut = async (req, res) => {
 
     const now = new Date();
 
-    // ✅ CHECK-IN
+    // ======================================================
+    // CHECK IN
+    // ======================================================
     if (!existing) {
       const isLate = now.getHours() >= 9 && now.getMinutes() > 0;
 
@@ -44,45 +52,71 @@ export const clockInOut = async (req, res) => {
         date: today,
         checkIn: now,
         status: isLate ? "LATE" : "PRESENT",
+        createdAt: new Date(),
       };
-      
+
       const result = await db.collection("attendance").insertOne(newAttendance);
 
-      await inngest.send({
-        name: "employee/check-out",
-        data: {
-          employeeId: employee._id,
-          attendanceId: result.insertedId,
-        }
-      })
+      // Send Inngest event
+      try {
+        console.log("🚀 About to send Inngest event");
+
+        const response = await inngest.send({
+          name: "employee/check-in",
+          data: {
+            employeeId: employee._id.toString(),
+            attendanceId: result.insertedId.toString(),
+          },
+        });
+
+        console.log("✅ Event sent successfully");
+        console.log(response);
+      } catch (err) {
+        console.error("❌ Event send failed");
+        console.error(err);
+      }
 
       return res.json({
         success: true,
         type: "CHECK_IN",
-        data: { _id: result.insertedId, ...newAttendance },
+        data: {
+          _id: result.insertedId,
+          ...newAttendance,
+        },
       });
     }
 
-    // ✅ CHECK-OUT
+    // ======================================================
+    // CHECK OUT
+    // ======================================================
     if (!existing.checkOut) {
       const checkInTime = new Date(existing.checkIn).getTime();
+
       const diffMS = now.getTime() - checkInTime;
       const diffHours = diffMS / (1000 * 60 * 60);
 
-      const workingHours = parseFloat(diffHours.toFixed(2));
+      const workingHours = Number(diffHours.toFixed(2));
 
-      let dayType = "Short Day";
-      if (workingHours >= 8) dayType = "Full Day";
-      else if (workingHours >= 6) dayType = "Three Quarter Day";
-      else if (workingHours >= 4) dayType = "Half Day";
+      let dayType = "SHORT_DAY";
+
+      if (workingHours >= 8) {
+        dayType = "FULL_DAY";
+      } else if (workingHours >= 6) {
+        dayType = "THREE_QUARTER_DAY";
+      } else if (workingHours >= 4) {
+        dayType = "HALF_DAY";
+      }
 
       await db.collection("attendance").updateOne(
-        { _id: existing._id },
+        {
+          _id: existing._id,
+        },
         {
           $set: {
             checkOut: now,
             workingHours,
             dayType,
+            updatedAt: new Date(),
           },
         }
       );
@@ -93,18 +127,20 @@ export const clockInOut = async (req, res) => {
       });
     }
 
-    // ✅ Already checked out
+    // Already checked out
     return res.json({
       success: true,
-      type: "CHECK_OUT",
+      type: "ALREADY_CHECKED_OUT",
       data: existing,
     });
   } catch (error) {
     console.error("Attendance Error:", error);
-    return res.status(500).json({ error: "Operation Failed" });
+
+    return res.status(500).json({
+      error: "Operation Failed",
+    });
   }
 };
-
 
 export const getAttendance = async (req, res) => {
   try {

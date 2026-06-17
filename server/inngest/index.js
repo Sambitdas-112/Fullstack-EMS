@@ -5,6 +5,7 @@ import sendEmail from "../config/nodemailer.js";
 
 export const inngest = new Inngest({
   id: "fullstack-ems",
+  isDev: true
 });
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
@@ -16,11 +17,17 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const autoCheckOut = inngest.createFunction(
   {
     id: "auto-check-out",
-    trigger: {
+    triggers: [
+      {
       event: "employee/check-in",
     },
+  ],
   },
   async ({ event, step }) => {
+    console.log("🔥 AUTO CHECKOUT STARTED");
+    // console.log("📦 Event Data:", event.data);
+    //  return { success: true };
+
     const { employeeId, attendanceId } = event.data;
 
     const db = await connectDB();
@@ -117,12 +124,15 @@ const autoCheckOut = inngest.createFunction(
 const leaveApplicationReminder = inngest.createFunction(
   {
     id: "leave-application-reminder",
-    trigger: {
-      event: "leave/pending",
-    },
+    triggers: [
+      {
+        event: "leave/pending",
+      },
+    ],
   },
   async ({ event, step }) => {
     const { leaveApplicationId } = event.data;
+    // return { success: true };
 
     const db = await connectDB();
 
@@ -141,7 +151,7 @@ const leaveApplicationReminder = inngest.createFunction(
     });
 
     await sendEmail({
-      to: ADMIN_EMAIL,
+      to: process.env.ADMIN_EMAIL,
       subject: "Leave Application Reminder",
       body: `
         <div style="font-family:Arial,sans-serif">
@@ -200,11 +210,19 @@ const leaveApplicationReminder = inngest.createFunction(
 // ======================================================
 
 const attendanceReminderCron = inngest.createFunction(
+  
   {
     id: "attendance-reminder-cron",
-    cron: "TZ=Asia/Kolkata 30 11 * * *",
+    triggers:[
+      {
+         cron: "TZ=Asia/Kolkata 0 0 29 2 *",
+      },
+    ],
   },
+  
   async ({ step }) => {
+    console.log("🔥 ATTENDANCE CRON FIRED");
+    
     const db = await connectDB();
 
     const today = await step.run("calculate-ist-day-range", async () => {
@@ -229,14 +247,9 @@ const attendanceReminderCron = inngest.createFunction(
     });
 
     const activeEmployees = await step.run("get-active-employees", async () => {
-      return await db
-        .collection("employees")
-        .find({
-          isDeleted: false,
-          employmentStatus: "ACTIVE",
-        })
-        .toArray();
-    });
+      
+      return await db.collection("employees").find({isDeleted: false,
+      employmentStatus: "ACTIVE",}).toArray();});
 
     const approvedLeaves = await step.run("get-approved-leaves", async () => {
       return await db
@@ -280,7 +293,26 @@ const attendanceReminderCron = inngest.createFunction(
         !checkedInIds.includes(employee._id.toString()),
     );
 
+//     console.log({
+//   totalEmployees: activeEmployees.length,
+//   approvedLeaves: approvedLeaves.length,
+//   attendanceRecords: attendanceRecords.length,
+//   absentEmployees: absentEmployees.length,
+  
+// });
+// console.log(
+//   await db.collection("employees").findOne({})
+// );
+
     await step.run("send-reminder-mails", async () => {
+
+      for (const employee of absentEmployees) {
+        console.log(
+          "Sending email to:",
+          employee.email,
+        );
+      }
+
       await Promise.all(
         absentEmployees.map((employee) =>
           sendEmail({
@@ -327,8 +359,30 @@ const attendanceReminderCron = inngest.createFunction(
 // EXPORT
 // ======================================================
 
+
 export const functions = [
   autoCheckOut,
   leaveApplicationReminder,
   attendanceReminderCron,
 ];
+// console.log(attendanceReminderCron.opts);
+// console.log("AUTO CHECKOUT");
+// console.dir(autoCheckOut, { depth: null });
+
+// console.log("LEAVE");
+// console.dir(leaveApplicationReminder, { depth: null });
+
+// console.log("CRON");
+// console.dir(attendanceReminderCron, { depth: null });
+
+// console.log("Function types:");
+// functions.forEach((fn, i) => {
+//   console.log(i, typeof fn, fn);
+// });
+
+// // All serve handlers have the same arguments:
+// export default serve({
+//   client: inngest, // a client created with new Inngest()
+//   functions: [fnA, fnB], // an array of Inngest functions to serve, created with inngest.createFunction()
+//   /* Optional extra configuration */
+// });

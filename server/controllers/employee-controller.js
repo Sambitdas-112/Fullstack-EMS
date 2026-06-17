@@ -7,8 +7,18 @@ export const getEmployee = async (req, res) => {
     const db = await connectDB();
     const { department } = req.query;
 
+    // Mark as deleted
     const query = {};
     if (department) query.department = department;
+
+    // Remove deleted employee
+    // const query = {
+    // isDeleted: { $ne: true },
+    // };
+
+    // if (department) {
+    //   query.department = department;
+    // }
 
     const employees = await db
       .collection("employees")
@@ -91,7 +101,7 @@ export const createEmployee = async (req, res) => {
     const userResult = await db.collection("users").insertOne({
       email,
       password: hashedPassword,
-      role: role || "EMPLOYEE",
+      role: role || "employee",
       createdAt: new Date(),
     });
 
@@ -107,6 +117,7 @@ export const createEmployee = async (req, res) => {
       basicSalary: Number(basicSalary) || 0,
       allowances: Number(allowances) || 0,
       deductions: Number(deductions) || 0,
+       
       bio: bio || "",
       joinDate: new Date(joinDate),
       createdAt: new Date(),

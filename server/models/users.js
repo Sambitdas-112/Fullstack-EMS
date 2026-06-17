@@ -24,7 +24,7 @@ export default async function User() {
               description: "must be a string and required"
             },
             role: {
-              enum: ["admin", "EMPLOYEE"]
+              enum: ["admin", "employee"]
             },
             createdAt: {
               bsonType: "date"

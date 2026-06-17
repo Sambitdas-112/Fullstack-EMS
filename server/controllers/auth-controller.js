@@ -21,6 +21,18 @@ export const login = async (req, res) => {
         error: "User not found",
       });
     }
+
+    // After delete employee can't access the account
+    const employee = await db.collection("employees").findOne({
+      userId: user._id,
+    });
+
+    if (employee && employee.isDeleted === true) {
+      return res.status(403).json({
+        error: "Access denied. Your account has been deactivated. Please contact the administrator for assistance.",
+      });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({
@@ -60,7 +72,7 @@ export const session = async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
 
-    console.log("AUTH HEADER:", authHeader);
+    // console.log("AUTH HEADER:", authHeader);
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
