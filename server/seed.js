@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import "dotenv/config";
 import { connectDB } from "./config/db.js";
 
-const client = new MongoClient("mongodb://127.0.0.1:27017");
+const client = new MongoClient(process.env.MONGODB_URI)
 
 const ADMIN_EMAIL = "admin@gmail.com";
 

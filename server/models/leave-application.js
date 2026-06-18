@@ -1,8 +1,7 @@
 import { MongoClient } from "mongodb";
 import { connectDB } from "./config/db.js";
 
-const uri = "mongodb://127.0.0.1:27017";
-const client = new MongoClient(uri);
+const client = new MongoClient(process.env.MONGODB_URI)
 
 export default async function LeaveApplication() {
   try {

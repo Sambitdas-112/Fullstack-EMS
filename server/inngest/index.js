@@ -5,7 +5,6 @@ import sendEmail from "../config/nodemailer.js";
 
 export const inngest = new Inngest({
   id: "fullstack-ems",
-  isDev: true
 });
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
