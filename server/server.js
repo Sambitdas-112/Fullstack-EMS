@@ -23,9 +23,12 @@ const PORT = process.env.PORT || 6080;
 // Middleware
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      "https://fullstack-ems-six.vercel.app",
+    ],
     credentials: true,
-  }),
+  })
 );
 
 app.use(
@@ -35,10 +38,6 @@ app.use(
 );
 app.use(multer().none());
 app.use(express.urlencoded({ extended: true }));
-
-// functions.forEach((fn, index) => {
-//   console.log(`Function ${index + 1}:`, fn);
-// });
 
 app.use("/api/inngest", serve({ client: inngest, functions }));
 
